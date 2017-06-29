@@ -17,26 +17,38 @@ class Dictionary(object):
 
 
 class Corpus(object):
-    def __init__(self, path):
+    """
+    Penn treeback has no periods in it, i.e. no sentence demarcation, just lines: we assume that lines are different sentences
+    Wikipedia has periods as well as <eos>, but unsure what <eos> means (tokenized by wiki2text in torchtext).
+    To keep clairity end of sentence here is donoted by <Reos>
+    """
+        
+    def __init__(self, path, to_sentence = False):
         self.dictionary = Dictionary()
-        self.train = self.tokenize(os.path.join(path, 'train.txt'))
-        self.valid = self.tokenize(os.path.join(path, 'valid.txt'))
-        self.test = self.tokenize(os.path.join(path, 'test.txt'))
+        if (to_sentence):
+            self.train = self.tokenize_sentence(os.path.join(path, 'train.txt'))
+            self.valid = self.tokenize_sentence(os.path.join(path, 'valid.txt'))
+            self.test = self.tokenize_sentence(os.path.join(path, 'test.txt'))            
+        else:
+            self.train = self.tokenize(os.path.join(path, 'train.txt'))
+            self.valid = self.tokenize(os.path.join(path, 'valid.txt'))
+            self.test = self.tokenize(os.path.join(path, 'test.txt'))
 
     def tokenize(self, path):
-        """Tokenizes a text file."""
+        """Tokenizes a text file into stream of words"""
         # Penn treeback has no periods in it, i.e. no sentence demarcation, just lines.
-        if ('penn' in path): print("PENN!!")
+        # Wikipedia already has eos, and sentences
         assert os.path.exists(path)
         # Add words to the dictionary
         with open(path, 'r') as f:
             tokens = 0
             for line in f:
+                print(line)
                 words = line.split() + ['<eos>']
                 tokens += len(words)
                 for word in words:
                     self.dictionary.add_word(word)
-
+                        
         # Tokenize file content
         with open(path, 'r') as f:
             ids = torch.LongTensor(tokens)
@@ -47,4 +59,33 @@ class Corpus(object):
                     ids[token] = self.dictionary.word2idx[word]
                     token += 1
 
+        return ids
+            
+                
+                                
+    def tokenize_sentence(self, path):
+        """Tokenizes a text file into sentences."""
+        print(path)
+        assert os.path.exists(path)
+        # Add words to the dictionary
+        with open(path, 'r') as f:
+            tokens = 0
+            for line in f:
+                sens = line.split(" .")
+                for sentence in sens:
+                    words = sentence.split() + ['<Reos>']
+                    tokens += len(words)
+                    for word in words:
+                        self.dictionary.add_word(word)
+                        
+        # Tokenize file content
+        with open(path, 'r') as f:
+            ids = []
+            for line in f:
+                sens = line.split(" .")
+                for sentence in sens:
+                    words = sentence.split() + ['<Reos>']
+                    sent_ids = torch.LongTensor(
+                        [self.dictionary.word2idx[word] for word in words])
+                    ids.append(sent_ids)            
         return ids
